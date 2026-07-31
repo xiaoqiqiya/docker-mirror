@@ -22,7 +22,7 @@ on:
       TARGET_REPOSITORY:
         description: '空间名称'
         required: true
-        default: 'dockerhub_mirror'
+        default: 'docker-image-push'
 
 jobs:
   build:
