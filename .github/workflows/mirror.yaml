@@ -42,8 +42,8 @@ jobs:
       - name: Send DingTalk Success
         uses: zcong1993/actions-ding@master # 建议使用具体版本
         with:
-          dingToken: ${{ secrets.DINGTALK_WEBHOOK }}
-          secret: ${{ secrets.DINGTALK_SECRET }} # 如果设置了加签，必须填这个
+          dingToken: ${{ secrets.DING_TOKEN }}
+          secret: ${{ secrets.DING_SECRET }} # 如果设置了加签，必须填这个
           body: |
             {
               "msgtype": "markdown",
