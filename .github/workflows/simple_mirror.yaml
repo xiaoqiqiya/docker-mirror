@@ -1,4 +1,4 @@
-name: PIG 镜像 simple
+name: PIG 镜像 action
 
 on:
   workflow_dispatch:
@@ -15,6 +15,10 @@ on:
         description: '空间名称'
         required: true
         default: 'docker-image-push'
+      USE_SUMMARY_REPOSITORY:
+        description: '是否使用汇总仓库'
+        required: true
+        default: 'true'
 
 jobs:
   build:
@@ -34,8 +38,16 @@ jobs:
             IMAGE_BASE="$IMAGE"
           fi
           NEW_NAME="${IMAGE_BASE##*/}"
+          if [[ "${{ github.event.inputs.USE_SUMMARY_REPOSITORY }}" == "true" ]]; then
+            DEST_REPO="Summary"
+            DEST_TAG="${NEW_NAME}-${VERSION}"
+          else
+            DEST_REPO="$NEW_NAME"
+            DEST_TAG="$VERSION"
+          fi
           echo "image=$IMAGE_BASE" >> $GITHUB_OUTPUT
-          echo "new_name=$NEW_NAME" >> $GITHUB_OUTPUT
+          echo "dest_repo=$DEST_REPO" >> $GITHUB_OUTPUT
+          echo "dest_tag=$DEST_TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Login to Docker Registry
@@ -44,7 +56,7 @@ jobs:
       - name: Pull, tag, and push Docker image
         env:
           SRC_IMAGE: ${{ steps.parse.outputs.image }}
-          DEST_IMAGE: ${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.new_name }}:${{ steps.parse.outputs.version }}
+          DEST_IMAGE: ${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.dest_repo }}:${{ steps.parse.outputs.dest_tag }}
         run: |
           docker pull "$SRC_IMAGE"
           docker tag "$SRC_IMAGE" "$DEST_IMAGE"
@@ -61,6 +73,6 @@ jobs:
               "msgtype": "markdown",
               "markdown": {
                 "title": "✅ 镜像同步成功",
-                "text": "## ✅ 镜像同步成功\n- **镜像名称**: `${{ steps.parse.outputs.new_name }}`\n- **版本**: `${{ steps.parse.outputs.version }}`\n- **完整地址**: `${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.new_name }}:${{ steps.parse.outputs.version }}`\n- **[查看运行日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
+                "text": "## ✅ 镜像同步成功\n- **镜像名称**: `${{ github.event.inputs.IMAGE_NAME }}`\n- **版本**: `${{ steps.parse.outputs.version }}`\n- **完整地址**: `${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.dest_repo }}:${{ steps.parse.outputs.dest_tag }}`\n- **[查看运行日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
               }
             }
