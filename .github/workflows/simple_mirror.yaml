@@ -1,0 +1,66 @@
+name: PIG 镜像 action
+
+on:
+  workflow_dispatch:
+    inputs:
+      IMAGE_NAME:
+        description: '原镜像地址(可带版本,如 mysql/mysql-server:8.0)'
+        required: true
+        default: 'mysql/mysql-server:latest'
+      TARGET_REGISTRY:
+        description: '仓库地址'
+        required: true
+        default: 'registry.cn-hangzhou.aliyuncs.com'
+      TARGET_REPOSITORY:
+        description: '空间名称'
+        required: true
+        default: 'docker-image-push'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      QYWX_ROBOT_URL: ${{ secrets.QYWX_ROBOT_URL }}
+    steps:
+      - name: Parse image name and version
+        id: parse
+        run: |
+          IMAGE="${{ github.event.inputs.IMAGE_NAME }}"
+          if [[ "$IMAGE" == *":"* ]]; then
+            VERSION="${IMAGE##*:}"
+            IMAGE_BASE="${IMAGE%:*}"
+          else
+            VERSION="latest"
+            IMAGE_BASE="$IMAGE"
+          fi
+          NEW_NAME="${IMAGE_BASE##*/}"
+          echo "image=$IMAGE_BASE" >> $GITHUB_OUTPUT
+          echo "new_name=$NEW_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Login to Docker Registry
+        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }} ${{ github.event.inputs.TARGET_REGISTRY }}
+
+      - name: Pull, tag, and push Docker image
+        env:
+          SRC_IMAGE: ${{ steps.parse.outputs.image }}
+          DEST_IMAGE: ${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.new_name }}:${{ steps.parse.outputs.version }}
+        run: |
+          docker pull "$SRC_IMAGE"
+          docker tag "$SRC_IMAGE" "$DEST_IMAGE"
+          docker push "$DEST_IMAGE"
+          echo "$DEST_IMAGE"
+
+      - name: Send DingTalk Success
+        uses: zcong1993/actions-ding@master # 建议使用具体版本
+        with:
+          dingToken: ${{ secrets.DING_TOKEN }}
+          secret: ${{ secrets.DING_SECRET }} # 如果设置了加签,必须填这个
+          body: |
+            {
+              "msgtype": "markdown",
+              "markdown": {
+                "title": "✅ 镜像同步成功",
+                "text": "## ✅ 镜像同步成功\n- **镜像名称**: `${{ steps.parse.outputs.new_name }}`\n- **版本**: `${{ steps.parse.outputs.version }}`\n- **完整地址**: `${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.new_name }}:${{ steps.parse.outputs.version }}`\n- **[查看运行日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
+              }
+            }
