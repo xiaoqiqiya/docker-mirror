@@ -39,15 +39,15 @@ jobs:
           fi
           NEW_NAME="${IMAGE_BASE##*/}"
           if [[ "${{ github.event.inputs.USE_SUMMARY_REPOSITORY }}" == "true" ]]; then
-            DEST_REPO="Summary"
+            DEST_REPO="summary"
             DEST_TAG="${NEW_NAME}-${VERSION}"
           else
             DEST_REPO="$NEW_NAME"
             DEST_TAG="$VERSION"
           fi
           echo "image=$IMAGE_BASE" >> $GITHUB_OUTPUT
-          echo "dest_repo=$DEST_REPO" >> $GITHUB_OUTPUT
-          echo "dest_tag=$DEST_TAG" >> $GITHUB_OUTPUT
+          echo "dest_repo=$(echo "$DEST_REPO" | tr 'A-Z' 'a-z')" >> $GITHUB_OUTPUT
+          echo "dest_tag=$(echo "$DEST_TAG" | tr 'A-Z' 'a-z')" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Login to Docker Registry
