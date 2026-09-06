@@ -40,7 +40,7 @@ jobs:
           docker push ${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ github.event.inputs.NEW_NAME }}:${{ github.event.inputs.IMAGE_VERSION }}
           echo  ${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ github.event.inputs.NEW_NAME }}:${{ github.event.inputs.IMAGE_VERSION }}
       - name: Send DingTalk Success
-        uses: zcong1993/actions-ding@v1.4.0  # 建议使用具体版本
+        uses: zcong1993/actions-ding@master # 建议使用具体版本
         with:
           dingToken: ${{ secrets.DINGTALK_WEBHOOK }}
           secret: ${{ secrets.DINGTALK_SECRET }} # 如果设置了加签，必须填这个
