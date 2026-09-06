@@ -1,4 +1,4 @@
-name: PIG 镜像 action
+name: 精简-镜像 action
 
 on:
   workflow_dispatch:
