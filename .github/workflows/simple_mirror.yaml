@@ -65,6 +65,8 @@ jobs:
 
       - name: Send DingTalk Success
         uses: zcong1993/actions-ding@master # 建议使用具体版本
+        env:
+          DEST_IMAGE: ${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.dest_repo }}:${{ steps.parse.outputs.dest_tag }}
         with:
           dingToken: ${{ secrets.DING_TOKEN }}
           secret: ${{ secrets.DING_SECRET }} # 如果设置了加签,必须填这个
@@ -73,6 +75,6 @@ jobs:
               "msgtype": "markdown",
               "markdown": {
                 "title": "✅ 镜像同步成功",
-                "text": "## ✅ 镜像同步成功\n- **镜像名称**: `${{ github.event.inputs.IMAGE_NAME }}`\n- **版本**: `${{ steps.parse.outputs.version }}`\n- **完整地址**: `${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.dest_repo }}:${{ steps.parse.outputs.dest_tag }}`\n- **[查看运行日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
+                "text": "## ✅ 镜像同步成功\n- **镜像名称**: `${{ github.event.inputs.IMAGE_NAME }}`\n- **版本**: `${{ steps.parse.outputs.version }}`\n- **完整地址**: `$DEST_IMAGE`\n- **镜像命名**: `docker tag $DEST_IMAGE ${{ steps.parse.outputs.image }}`\n-**[查看运行日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
               }
             }
