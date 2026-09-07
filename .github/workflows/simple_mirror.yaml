@@ -75,6 +75,6 @@ jobs:
               "msgtype": "markdown",
               "markdown": {
                 "title": "✅ 镜像同步成功",
-                "text": "## ✅ 镜像同步成功\n- **镜像名称**: `${{ github.event.inputs.IMAGE_NAME }}`\n- **版本**: `${{ steps.parse.outputs.version }}`\n- **完整地址**: `${{ env.DEST_IMAGE }}`\n- **镜像命名**: `docker tag ${{ env.DEST_IMAGE }} ${{ steps.parse.outputs.image }}`\n- **[查看运行日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
+                "text": "## ✅ 镜像同步成功\n- **镜像名称**: `${{ github.event.inputs.IMAGE_NAME }}`\n- **版本**: `${{ steps.parse.outputs.version }}`\n- **完整地址**: `${{ env.DEST_IMAGE }}`\n- **镜像命名**: `docker tag ${{ env.DEST_IMAGE }} ${{ steps.parse.outputs.image }}:${{steps.parse.outputs.version}}`\n- **[查看运行日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
               }
             }
