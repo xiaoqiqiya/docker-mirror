@@ -64,6 +64,7 @@ jobs:
           SRC_IMAGE: ${{ steps.parse.outputs.image }}
           DEST_IMAGE: ${{ github.event.inputs.TARGET_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.dest_repo }}:${{ steps.parse.outputs.dest_tag }}
         run: |
+          echo "拉去：$SRC_IMAGE"
           docker pull "$SRC_IMAGE"
           docker tag "$SRC_IMAGE" "$DEST_IMAGE"
           docker push "$DEST_IMAGE"
