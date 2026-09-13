@@ -51,7 +51,7 @@ jobs:
             DEST_REPO="$NEW_NAME"
             DEST_TAG="$VERSION"
           fi
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "image=$IMAGE_BASE" >> $GITHUB_OUTPUT
           echo "dest_repo=$(echo "$DEST_REPO" | tr 'A-Z' 'a-z')" >> $GITHUB_OUTPUT
           echo "dest_tag=$(echo "$DEST_TAG" | tr 'A-Z' 'a-z')" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
