@@ -30,7 +30,12 @@ jobs:
         id: parse
         run: |
           IMAGE="${{ github.event.inputs.IMAGE_NAME }}"
-          if [[ "$IMAGE" == *":"* ]]; then
+          if [[ "$IMAGE" == *"@sha256:"* ]]; then
+            DIGEST="${IMAGE##*@sha256:}"
+            IMAGE_BASE="${IMAGE%%@sha256:*}"
+            # 使用 digest 的前12位作为版本标签的一部分，避免过长
+            VERSION="sha256-${DIGEST:0:12}"
+          elif [[ "$IMAGE" == *":"* ]]; then
             VERSION="${IMAGE##*:}"
             IMAGE_BASE="${IMAGE%:*}"
           else
