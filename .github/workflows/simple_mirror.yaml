@@ -40,7 +40,8 @@ jobs:
           NEW_NAME="${IMAGE_BASE##*/}"
           if [[ "${{ github.event.inputs.USE_SUMMARY_REPOSITORY }}" == "true" ]]; then
             DEST_REPO="summary"
-            DEST_TAG="${NEW_NAME}-${VERSION}"
+            SAFE_VERSION=$(echo "$VERSION" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            DEST_TAG="${NEW_NAME}-${SAFE_VERSION}"
           else
             DEST_REPO="$NEW_NAME"
             DEST_TAG="$VERSION"
