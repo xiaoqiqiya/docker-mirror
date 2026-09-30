@@ -52,7 +52,7 @@ jobs:
             local host port
 
             if [[ "$value" == *"://"* || "$value" == *"/"* ]]; then
-              echo "::error::$name 只能填写主机名或主机名:端口，不能包含协议或路径"
+              echo "::error::$name 只能填写主机名或主机名:端口；即使是 HTTP 仓库也不要填写 http://"
               exit 1
             fi
 
@@ -122,24 +122,30 @@ jobs:
           fi
           echo "已配置内网 Registry hosts 映射"
 
-      - name: Login to Docker Registry
+      - name: Install crane
         env:
-          REGISTRY_ENDPOINT: ${{ github.event.inputs.INTERNAL_REGISTRY }}
+          CRANE_VERSION: v0.22.1
+        run: |
+          curl -fsSL "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin crane
+          crane version
+
+      - name: Login to internal registry
+        env:
+          INTERNAL_REGISTRY: ${{ github.event.inputs.INTERNAL_REGISTRY }}
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME_2 }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD_2 }}
-        run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin "$REGISTRY_ENDPOINT"
+        run: echo "$DOCKER_PASSWORD" | crane auth login "$INTERNAL_REGISTRY" --username "$DOCKER_USERNAME" --password-stdin
 
-      - name: Pull, tag, and push Docker image
+      - name: Copy image to internal registry
         env:
           SRC_IMAGE: ${{ github.event.inputs.IMAGE_NAME }}
           DEST_IMAGE: ${{ github.event.inputs.INTERNAL_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.dest_repo }}:${{ steps.parse.outputs.dest_tag }}
         run: |
           set -euo pipefail
 
-          echo "拉取：$SRC_IMAGE"
-          docker pull "$SRC_IMAGE"
-          docker tag "$SRC_IMAGE" "$DEST_IMAGE"
-          docker push "$DEST_IMAGE"
+          echo "同步：$SRC_IMAGE -> $DEST_IMAGE"
+          crane copy "$SRC_IMAGE" "$DEST_IMAGE" --insecure
           echo "镜像已推送到内网 Registry"
 
       - name: Send DingTalk Success
