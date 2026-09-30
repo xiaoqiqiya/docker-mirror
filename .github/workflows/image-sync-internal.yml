@@ -123,8 +123,8 @@ jobs:
       - name: Login to Docker Registry
         env:
           REGISTRY_ENDPOINT: ${{ github.event.inputs.INTERNAL_REGISTRY }}
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME_2 }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD_2 }}
         run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin "$REGISTRY_ENDPOINT"
 
       - name: Pull, tag, and push Docker image
