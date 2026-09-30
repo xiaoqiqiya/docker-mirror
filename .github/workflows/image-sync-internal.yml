@@ -1,0 +1,157 @@
+name: 精简-内网-镜像 action
+
+on:
+  workflow_dispatch:
+    inputs:
+      IMAGE_NAME:
+        description: '原镜像地址(可带版本,如 mysql/mysql-server:8.0)'
+        required: true
+        default: 'mysql/mysql-server:latest'
+      INTERNAL_REGISTRY:
+        description: '内网仓库地址(主机名，可带端口，如 registry.internal:5000)'
+        required: true
+      EXTERNAL_REGISTRY:
+        description: '外网仓库地址(主机名，可带端口，如 registry.example.com:5000)'
+        required: true
+      TARGET_REPOSITORY:
+        description: '空间名称'
+        required: true
+        default: 'docker-image-push'
+      USE_SUMMARY_REPOSITORY:
+        description: '是否使用汇总仓库'
+        required: true
+        default: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate registry inputs
+        env:
+          INTERNAL_REGISTRY: ${{ github.event.inputs.INTERNAL_REGISTRY }}
+          EXTERNAL_REGISTRY: ${{ github.event.inputs.EXTERNAL_REGISTRY }}
+          REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$REGISTRY_HOST_IP" ]]; then
+            echo "::error::Secret REGISTRY_HOST_IP 不能为空"
+            exit 1
+          fi
+          echo "::add-mask::$REGISTRY_HOST_IP"
+
+          if [[ -z "$INTERNAL_REGISTRY" || -z "$EXTERNAL_REGISTRY" ]]; then
+            echo "::error::内网和外网 Registry 地址不能为空"
+            exit 1
+          fi
+          validate_registry() {
+            local name="$1"
+            local value="$2"
+            local host port
+
+            if [[ "$value" == *"://"* || "$value" == *"/"* ]]; then
+              echo "::error::$name 只能填写主机名或主机名:端口，不能包含协议或路径"
+              exit 1
+            fi
+
+            host="${value%%:*}"
+            if [[ -z "$host" || "$value" == *:*:* ]]; then
+              echo "::error::$name 格式无效，请填写主机名或主机名:端口"
+              exit 1
+            fi
+
+            if [[ "$value" == *":"* ]]; then
+              port="${value##*:}"
+              if [[ ! "$port" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+                echo "::error::$name 中的端口必须是 1-65535 之间的数字"
+                exit 1
+              fi
+            fi
+          }
+
+          validate_registry "INTERNAL_REGISTRY" "$INTERNAL_REGISTRY"
+          validate_registry "EXTERNAL_REGISTRY" "$EXTERNAL_REGISTRY"
+
+      - name: Parse image name and version
+        id: parse
+        run: |
+          set -euo pipefail
+
+          IMAGE="${{ github.event.inputs.IMAGE_NAME }}"
+          if [[ "$IMAGE" == *"@sha256:"* ]]; then
+            DIGEST="${IMAGE##*@sha256:}"
+            IMAGE_BASE="${IMAGE%%@sha256:*}"
+            # 使用 digest 的前12位作为版本标签的一部分，避免过长
+            VERSION="sha256-${DIGEST:0:12}"
+          elif [[ "$IMAGE" == *":"* ]]; then
+            VERSION="${IMAGE##*:}"
+            IMAGE_BASE="${IMAGE%:*}"
+          else
+            VERSION="latest"
+            IMAGE_BASE="$IMAGE"
+          fi
+          NEW_NAME="${IMAGE_BASE##*/}"
+          if [[ "${{ github.event.inputs.USE_SUMMARY_REPOSITORY }}" == "true" ]]; then
+            DEST_REPO="summary"
+            SAFE_VERSION=$(echo "$VERSION" | sed 's/[^a-zA-Z0-9._-]/-/g')
+            DEST_TAG="${NEW_NAME}-${SAFE_VERSION}"
+          else
+            DEST_REPO="$NEW_NAME"
+            DEST_TAG="$VERSION"
+          fi
+          echo "image=$IMAGE_BASE" >> "$GITHUB_OUTPUT"
+          echo "dest_repo=$(echo "$DEST_REPO" | tr 'A-Z' 'a-z')" >> "$GITHUB_OUTPUT"
+          echo "dest_tag=$(echo "$DEST_TAG" | tr 'A-Z' 'a-z')" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure internal registry host
+        env:
+          INTERNAL_REGISTRY: ${{ github.event.inputs.INTERNAL_REGISTRY }}
+          REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP }}
+        run: |
+          set -euo pipefail
+
+          echo "::add-mask::$REGISTRY_HOST_IP"
+          INTERNAL_REGISTRY_HOST="${INTERNAL_REGISTRY%%:*}"
+          printf '%s %s\n' "$REGISTRY_HOST_IP" "$INTERNAL_REGISTRY_HOST" | sudo tee -a /etc/hosts > /dev/null
+          if ! awk -v host="$INTERNAL_REGISTRY_HOST" '$2 == host { found = 1 } END { exit !found }' /etc/hosts; then
+            echo "::error::内网 Registry hosts 映射写入失败"
+            exit 1
+          fi
+          echo "已配置内网 Registry hosts 映射"
+
+      - name: Login to Docker Registry
+        env:
+          REGISTRY_ENDPOINT: ${{ github.event.inputs.INTERNAL_REGISTRY }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin "$REGISTRY_ENDPOINT"
+
+      - name: Pull, tag, and push Docker image
+        env:
+          SRC_IMAGE: ${{ github.event.inputs.IMAGE_NAME }}
+          DEST_IMAGE: ${{ github.event.inputs.INTERNAL_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.dest_repo }}:${{ steps.parse.outputs.dest_tag }}
+        run: |
+          set -euo pipefail
+
+          echo "拉取：$SRC_IMAGE"
+          docker pull "$SRC_IMAGE"
+          docker tag "$SRC_IMAGE" "$DEST_IMAGE"
+          docker push "$DEST_IMAGE"
+          echo "镜像已推送到内网 Registry"
+
+      - name: Send DingTalk Success
+        uses: zcong1993/actions-ding@master # 建议使用具体版本
+        env:
+          PUBLIC_IMAGE: ${{ github.event.inputs.EXTERNAL_REGISTRY }}/${{ github.event.inputs.TARGET_REPOSITORY }}/${{ steps.parse.outputs.dest_repo }}:${{ steps.parse.outputs.dest_tag }}
+        with:
+          dingToken: ${{ secrets.DING_TOKEN }}
+          secret: ${{ secrets.DING_SECRET }} # 如果设置了加签,必须填这个
+          body: |
+            {
+              "msgtype": "markdown",
+              "markdown": {
+                "title": "✅ 镜像同步成功",
+                "text": "## ✅ 镜像同步成功\n- **镜像名称**: `${{ github.event.inputs.IMAGE_NAME }}`\n- **版本**: `${{ steps.parse.outputs.version }}`\n- **完整地址**: `${{ env.PUBLIC_IMAGE }}`\n\n**快速拉取：**\n```bash\ndocker pull ${{ env.PUBLIC_IMAGE }}\n```\n\n**快速重命名：**\n```bash\ndocker tag ${{ env.PUBLIC_IMAGE }} ${{ steps.parse.outputs.image }}:${{ steps.parse.outputs.version }}\n```\n\n**[查看运行日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**"
+              }
+            }
