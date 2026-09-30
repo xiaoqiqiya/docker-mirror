@@ -8,7 +8,7 @@ on:
         required: true
         default: 'mysql/mysql-server:latest'
       INTERNAL_REGISTRY:
-        description: '内网仓库地址(主机名，可带端口，如 registry.internal:5000)'
+        description: '内网 HTTP 仓库地址(主机名:端口，不带 http://，如 registry.internal:5000)'
         required: true
         default: 'crpi-0k5b7uxogmjxo5px-vpc.cn-shanghai.personal.cr.aliyuncs.com:9001'
       EXTERNAL_REGISTRY:
@@ -129,6 +129,12 @@ jobs:
           curl -fsSL "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" \
             | sudo tar -xz -C /usr/local/bin crane
           crane version
+
+      - name: Login to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME_IO }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN_IO }}
+        run: echo "$DOCKERHUB_TOKEN" | crane auth login index.docker.io --username "$DOCKERHUB_USERNAME" --password-stdin
 
       - name: Login to internal registry
         env:
